@@ -1,9 +1,13 @@
-<#
-    import_queries.ps1 — load every query from NABAVA_QUERIES.m into NABAVA_PQ.xlsx
+﻿<#
+    import_queries.ps1 - load every query from NABAVA_QUERIES.m into NABAVA_PQ.xlsx
 
     Replaces the manual "paste 10 blocks into Napredni uredjivac" step.
     Re-runnable: existing queries of the same name are removed first, so this
     is safe to run after every edit to the .m file.
+
+    ASCII only, deliberately: PowerShell 5.1 reads a BOM-less file as cp1252,
+    where a UTF-8 em dash decodes to a smart quote and terminates a string.
+    check_queries.py enforces this.
 
     Requires: Windows + Excel installed (uses the Excel COM object model).
     The workbook must NOT be open in Excel while this runs.
@@ -157,7 +161,7 @@ try {
     $wb.Save()
     $wb.Close($true)
     if ($refreshFailed) {
-        Write-Host "Saved $wbPath — queries are IN the file, but the data did not refresh (see above)."
+        Write-Host "Saved $wbPath - queries are IN the file, but the data did not refresh (see above)."
     } else {
         Write-Host "Saved $wbPath"
     }

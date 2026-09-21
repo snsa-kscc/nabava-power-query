@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate NABAVA_QUERIES.m without Excel.
+"""Validate NABAVA_QUERIES.m (and import_queries.ps1) without Excel.
 
 Mirrors the parsing in import_queries.ps1, so a green run here means the
 Windows import will see the same 10 queries. Checks marker syntax, block
@@ -76,6 +76,32 @@ for d in defs:
             errors.append(f"{d['name']}: references {other}, which is created later")
     seen.add(d["name"])
 
+# ---------------------------------------------------------------------------
+# The importer cannot be executed here, so check the one thing that silently
+# breaks it: PowerShell 5.1 reads a BOM-less file as cp1252, and the third byte
+# of a UTF-8 em dash decodes to a typographic quote, which the parser accepts as
+# a string terminator. Every brace after it then unbalances.
+PS1 = "import_queries.ps1"
+try:
+    data = open(PS1, "rb").read()
+except FileNotFoundError:
+    data = None
+
+if data is not None:
+    body = data[3:] if data[:3] == b"\xef\xbb\xbf" else data
+    txt = body.decode("utf-8")
+    for lineno, line in enumerate(txt.splitlines(), 1):
+        for c in line:
+            if ord(c) > 127:
+                errors.append(f"{PS1}:{lineno}: non-ASCII {c!r} (U+{ord(c):04X}) "
+                              f"- PowerShell 5.1 may read it as a string terminator")
+                break
+    if data[:3] != b"\xef\xbb\xbf":
+        errors.append(f"{PS1}: missing UTF-8 BOM - PowerShell 5.1 will decode it as cp1252")
+    for o, c in (("{", "}"), ("(", ")")):
+        if txt.count(o) != txt.count(c):
+            errors.append(f"{PS1}: unbalanced {o}{c} ({txt.count(o)} vs {txt.count(c)})")
+
 for d in defs:
     print(f"  {d['name']:<18} {d['load']:<22} {len(d['body'].splitlines()):>3} lines"
           + (f"  (derived from {d['derive']})" if d["derive"] else ""))
@@ -86,4 +112,4 @@ if errors:
     for e in errors:
         print("  -", e)
     sys.exit(1)
-print("OK — parse clean, ready for import_queries.ps1")
+print("OK - parse clean; import_queries.ps1 is ASCII + BOM")
