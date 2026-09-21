@@ -131,13 +131,36 @@ try {
         $qt.CommandText       = "SELECT * FROM [$($d.Name)]"
         $qt.BackgroundQuery   = $false
         $qt.AdjustColumnWidth = $false
-        $qt.Refresh($false) | Out-Null
-        Write-Host ("  -> {0} loaded to {1}!{2} ({3} rows)" -f $d.Name, $d.Sheet, $d.Cell, $lo.ListRows.Count)
+        # A refresh failure must not cost us the ten queries we just added, so the
+        # queries and the table are kept and saved either way.
+        try {
+            $qt.Refresh($false) | Out-Null
+            Write-Host ("  -> {0} loaded to {1}!{2} ({3} rows)" -f $d.Name, $d.Sheet, $d.Cell, $lo.ListRows.Count)
+        }
+        catch {
+            $msg = "$_"
+            Write-Warning ("{0} was created but the refresh failed: {1}" -f $d.Name, $msg)
+            if ($msg -match 'may not directly access a data source|Formula\.Firewall|rebuild this data combination') {
+                Write-Host ""
+                Write-Host "This is the Power Query privacy firewall, not a bug in the M." -ForegroundColor Yellow
+                Write-Host "Putanja reads the folder from a cell and fnDatoteke then hits the disk," -ForegroundColor Yellow
+                Write-Host "which the firewall refuses to combine. To allow it:" -ForegroundColor Yellow
+                Write-Host "  Excel -> Data -> Get Data -> Query Options -> Privacy" -ForegroundColor Yellow
+                Write-Host "       -> Always ignore Privacy Level settings -> OK" -ForegroundColor Yellow
+                Write-Host "Then refresh with Ctrl+Alt+F5, or re-run this script." -ForegroundColor Yellow
+                Write-Host ""
+            }
+            $script:refreshFailed = $true
+        }
     }
 
     $wb.Save()
     $wb.Close($true)
-    Write-Host "Saved $wbPath"
+    if ($refreshFailed) {
+        Write-Host "Saved $wbPath — queries are IN the file, but the data did not refresh (see above)."
+    } else {
+        Write-Host "Saved $wbPath"
+    }
 }
 finally {
     $excel.Quit()

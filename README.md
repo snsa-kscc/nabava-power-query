@@ -72,7 +72,21 @@ queries are in, the file is self-contained and the end user never touches any of
    `=NABAVA!$A$4`. The conditional formatting is already bound to `Q5:Q4000`
    (STATUS) and `I5:I4000` (Zaliha traje), so it lights up on first load.
 
-4. `Ctrl+Alt+F5` to refresh everything. Check the row count matches ~930.
+4. **Allow the privacy firewall.** `Putanja` reads the folder out of a cell and
+   `fnDatoteke` then reads the disk, and Power Query refuses to combine a query
+   reference with a direct data-source hit:
+
+   > Query 'fnDatoteke' (step 'fnDatoteke') references other queries or steps, so
+   > it may not directly access a data source. Please rebuild this data combination.
+
+   `Podaci → Dohvati podatke → Opcije upita → Privatnost`
+   (`Data → Get Data → Query Options → Privacy`) → **ignore privacy levels**.
+
+   Set it under **Current Workbook**, not only Global: the workbook-scoped setting
+   is stored in the file, so the end user gets it without touching any options. The
+   Global setting only covers the machine it was set on.
+
+5. `Ctrl+Alt+F5` to refresh everything. Check the row count matches ~930.
 
 ---
 
@@ -183,6 +197,7 @@ year — but `Stanje` is not.
 | Situation | Behaviour |
 |---|---|
 | Workbook never saved | Clear Croatian error: "Spremite datoteku (Save) prije osvjezavanja." |
+| Privacy levels not ignored | `Formula.Firewall`: "references other queries or steps, so it may not directly access a data source". Expected, not a bug — see step 4. It is the price of resolving the folder from a cell instead of hard-coding a path. |
 | Only one `Stanje` file in folder | No error. The index clamps to the only file, so `qStanjePrethodno` equals `qStanje` and `Izlaz` shows zero movement until a second export arrives. |
 | No `Stanje` / `Analiza` file at all | Named error rather than a cryptic one |
 | Column renamed in a future ERP version | `fnStupac` returns `null`, that column comes through empty, the rest still works |
