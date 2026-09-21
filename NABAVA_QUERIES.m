@@ -322,17 +322,27 @@ let
 
     // master list = every article seen in ANY source. The stock export is
     // filtered to warehouse 04 and misses ~139 articles that do have sales.
+    // Buffered once. Power Query does not cache query references: every mention
+    // of qStanje / qProdaja re-runs its whole chain, which means re-opening the
+    // export files, and every mention of qDolasci re-reads this workbook.
+    bufStanje    = Table.Buffer(qStanje),
+    bufPrethodno = Table.Buffer(qStanjePrethodno),
+    bufProdaja   = Table.Buffer(qProdaja),
+    bufDolasci   = Table.Buffer(qDolasci),
+
     sviArtikli = Table.Distinct(Table.Combine({
-        Table.SelectColumns(qStanje,   {"Artikal"}),
-        Table.SelectColumns(qProdaja,  {"Artikal"}),
-        Table.SelectColumns(qDolasci,  {"Artikal"})
+        Table.SelectColumns(bufStanje,  {"Artikal"}),
+        Table.SelectColumns(bufProdaja, {"Artikal"}),
+        Table.SelectColumns(bufDolasci, {"Artikal"})
     })),
 
-    sStanjem = Table.NestedJoin(sviArtikli, {"Artikal"}, qStanje, {"Artikal"}, "S", JoinKind.LeftOuter),
-    sPrethodnim = Table.NestedJoin(sStanjem, {"Artikal"}, qStanjePrethodno, {"Artikal"}, "P", JoinKind.LeftOuter),
-    sProdajom = Table.NestedJoin(sPrethodnim, {"Artikal"}, qProdaja, {"Artikal"}, "R", JoinKind.LeftOuter),
+    sStanjem = Table.NestedJoin(sviArtikli, {"Artikal"}, bufStanje, {"Artikal"}, "S", JoinKind.LeftOuter),
+    sPrethodnim = Table.NestedJoin(sStanjem, {"Artikal"}, bufPrethodno, {"Artikal"}, "P", JoinKind.LeftOuter),
+    sProdajom = Table.NestedJoin(sPrethodnim, {"Artikal"}, bufProdaja, {"Artikal"}, "R", JoinKind.LeftOuter),
+    // shipments joined like every other source instead of re-scanned per row
+    sDolascima = Table.NestedJoin(sProdajom, {"Artikal"}, bufDolasci, {"Artikal"}, "D", JoinKind.LeftOuter),
 
-    polja = Table.AddColumn(sProdajom, "X", each
+    polja = Table.AddColumn(sDolascima, "X", each
         let
             s = try [S]{0} otherwise null,
             p = try [P]{0} otherwise null,
@@ -342,9 +352,11 @@ let
             prosjek = if r = null then 0 else r[Prosjek],
             naziv = if s <> null and s[NazivArtikla] <> null then s[NazivArtikla]
                     else if r <> null then r[NazivArtikla] else "",
-            dolasci = Table.Sort(
-                Table.SelectRows(qDolasci, (d) => d[Artikal] = [Artikal]),
-                {{"Rb", Order.Ascending}}),
+            // [D] already holds only this article's shipments, from the join.
+            // Filtering qDolasci here re-evaluated it once per article row, and
+            // because it reads Excel.CurrentWorkbook() that cost grew as the
+            // output table itself grew.
+            dolasci = Table.Sort([D], {{"Rb", Order.Ascending}}),
             d1 = try dolasci{0} otherwise null,
             d2 = try dolasci{1} otherwise null,
             d3 = try dolasci{2} otherwise null,

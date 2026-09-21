@@ -137,8 +137,9 @@ runs on 2016 and later.
 If the end user turns out to be below 2021, two small edits drop the requirement to
 2016: replace each `x ?? 0` with `try x otherwise 0`, and rebuild `Text.Select`
 as `Text.Combine(List.Select(Text.ToList(...), each List.Contains({"0".."9","_","."}, _)))`.
-Worth also wrapping `Table.Buffer` around `qDolasci` on an older engine, since it
-is scanned once per article.
+`qDolasci` no longer needs a manual `Table.Buffer` on older engines: `qNabava`
+buffers all four sources itself and joins the shipments instead of scanning them
+per article.
 
 ---
 
@@ -192,11 +193,38 @@ year — but `Stanje` is not.
 
 ---
 
+## Performance
+
+`qNabava` buffers its four sources and joins them. Both matter, and the second one
+much more than it looks:
+
+```
+bufDolasci = Table.Buffer(qDolasci),
+sDolascima = Table.NestedJoin(sProdajom, {"Artikal"}, bufDolasci, {"Artikal"}, "D", JoinKind.LeftOuter),
+```
+
+Power Query does not cache query references. An earlier version filtered
+`qDolasci` inside the row expression:
+
+```
+dolasci = Table.Sort(Table.SelectRows(qDolasci, (d) => d[Artikal] = [Artikal]), ...)
+```
+
+which re-evaluated the whole query once per article - roughly 930 reads of
+`Excel.CurrentWorkbook()`, each enumerating every table and named range in the
+workbook. A refresh that should take seconds ran long enough to look hung.
+
+The rule for this model: reference a query once, buffer it, and join rather than
+filter inside `Table.AddColumn`.
+
+---
+
 ## Failure modes, and what happens
 
 | Situation | Behaviour |
 |---|---|
 | Workbook never saved | Clear Croatian error: "Spremite datoteku (Save) prije osvjezavanja." |
+| Refresh appears to hang | Almost certainly a query being re-evaluated inside a row expression. See Performance. |
 | A misremembered M function name | Refresh fails with "The import X matches no exports. Did you miss a module reference?" `check_queries.py` holds a whitelist of the M functions in use and flags anything outside it, because nothing on a Linux box can compile M. |
 | Privacy levels not ignored | `Formula.Firewall`: "references other queries or steps, so it may not directly access a data source". Expected, not a bug — see step 4. It is the price of resolving the folder from a cell instead of hard-coding a path. |
 | Only one `Stanje` file in folder | No error. The index clamps to the only file, so `qStanjePrethodno` equals `qStanje` and `Izlaz` shows zero movement until a second export arrives. |
