@@ -161,7 +161,7 @@ let
     broj     = Table.RowCount(datoteke),
     odabrana = if broj = 0
                then error "U mapi nema datoteke 'Stanje skladista...'"
-               else datoteke{Number.Min(idx, broj - 1)},
+               else datoteke{List.Min({idx, broj - 1})},
     sadrzaj  = odabrana[Content],
     knjiga   = Excel.Workbook(sadrzaj, null, true),
     listovi  = Table.SelectRows(knjiga, each [Kind] = "Sheet"),

@@ -77,6 +77,37 @@ for d in defs:
     seen.add(d["name"])
 
 # ---------------------------------------------------------------------------
+# M has no compiler here, so a misremembered library name (Number.Min, which
+# does not exist - it is List.Min) only surfaces as a refresh error in Excel.
+# Every Foo.Bar identifier must be one known to exist in the M standard library.
+KNOWN_M = {
+    "Date.From", "Date.Month", "Date.Year",
+    "Excel.CurrentWorkbook", "Excel.Workbook", "Folder.Files",
+    "JoinKind.LeftOuter", "MissingField.Ignore",
+    "List.Accumulate", "List.Contains", "List.Count", "List.Distinct",
+    "List.First", "List.Max", "List.Min", "List.PositionOf", "List.RemoveNulls",
+    "List.Select", "List.Sum", "List.Transform",
+    "Number.Abs", "Number.From", "Number.FromText", "Number.Round",
+    "Order.Ascending", "Order.Descending",
+    "Table.AddColumn", "Table.AddIndexColumn", "Table.Buffer", "Table.Column",
+    "Table.ColumnNames", "Table.Combine", "Table.Distinct",
+    "Table.ExpandRecordColumn", "Table.FirstN", "Table.Group",
+    "Table.NestedJoin", "Table.PromoteHeaders", "Table.RemoveColumns",
+    "Table.RenameColumns", "Table.RowCount", "Table.SelectColumns",
+    "Table.SelectRows", "Table.Sort", "Table.TransformColumns",
+    "Table.TransformColumnTypes", "Table.TransformRows",
+    "Table.UnpivotOtherColumns",
+    "Text.Combine", "Text.EndsWith", "Text.From", "Text.Length", "Text.Lower",
+    "Text.Replace", "Text.Select", "Text.Split", "Text.StartsWith",
+    "Text.ToList", "Text.Trim",
+}
+for d in defs:
+    for name in sorted(set(re.findall(r'\b[A-Z][A-Za-z]+\.[A-Za-z]+\b', d["code"]))):
+        if name not in KNOWN_M:
+            errors.append(f"{d['name']}: {name} is not a known M function "
+                          f"- check the name before shipping (add it to KNOWN_M if real)")
+
+# ---------------------------------------------------------------------------
 # The importer cannot be executed here, so check the one thing that silently
 # breaks it: PowerShell 5.1 reads a BOM-less file as cp1252, and the third byte
 # of a UTF-8 em dash decodes to a typographic quote, which the parser accepts as

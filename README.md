@@ -197,6 +197,7 @@ year — but `Stanje` is not.
 | Situation | Behaviour |
 |---|---|
 | Workbook never saved | Clear Croatian error: "Spremite datoteku (Save) prije osvjezavanja." |
+| A misremembered M function name | Refresh fails with "The import X matches no exports. Did you miss a module reference?" `check_queries.py` holds a whitelist of the M functions in use and flags anything outside it, because nothing on a Linux box can compile M. |
 | Privacy levels not ignored | `Formula.Firewall`: "references other queries or steps, so it may not directly access a data source". Expected, not a bug — see step 4. It is the price of resolving the folder from a cell instead of hard-coding a path. |
 | Only one `Stanje` file in folder | No error. The index clamps to the only file, so `qStanjePrethodno` equals `qStanje` and `Izlaz` shows zero movement until a second export arrives. |
 | No `Stanje` / `Analiza` file at all | Named error rather than a cryptic one |
