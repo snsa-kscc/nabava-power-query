@@ -1,0 +1,89 @@
+#!/usr/bin/env python3
+"""Validate NABAVA_QUERIES.m without Excel.
+
+Mirrors the parsing in import_queries.ps1, so a green run here means the
+Windows import will see the same 10 queries. Checks marker syntax, block
+boundaries, the derive anchor, brace/paren balance, and that every query a
+block references is defined before it.
+"""
+import re, sys
+
+SRC = "NABAVA_QUERIES.m"
+text = open(SRC, encoding="utf-8").read()
+
+marker = re.compile(r'^/\*@\s*query:\s*(?P<spec>[^*]+?)\s*\*/\s*$', re.M)
+ms = list(marker.finditer(text))
+if not ms:
+    sys.exit("no markers found")
+
+defs, errors = [], []
+for i, m in enumerate(ms):
+    end = ms[i + 1].start() if i + 1 < len(ms) else len(text)
+    body = text[m.end():end]
+    body = re.sub(r'(\s*/\*(?:(?!\*/).)*\*/\s*)+$', '', body, flags=re.S).strip()
+
+    parts = [p.strip() for p in m.group('spec').split('|')]
+    d = {"name": parts[0], "load": "connection", "derive": None,
+         "find": None, "repl": None, "body": body, "code": ""}
+    for p in parts[1:]:
+        if p == "load: connection":
+            pass
+        elif mm := re.match(r'load:\s*sheet\s+(.+?)!(\$?\w+\$?\d+)$', p):
+            d["load"] = f"sheet {mm.group(1)}!{mm.group(2)}"
+        elif mm := re.match(r'derive-from:\s*(.+)$', p):
+            d["derive"] = mm.group(1)
+        elif mm := re.match(r'replace-once:\s*(.+?)\s*=>\s*(.+)$', p):
+            d["find"], d["repl"] = mm.group(1), mm.group(2)
+        else:
+            errors.append(f"{d['name']}: unrecognised directive {p!r}")
+    defs.append(d)
+
+by_name = {d["name"]: d for d in defs}
+
+for d in defs:
+    if d["derive"]:
+        src = by_name.get(d["derive"])
+        if not src:
+            errors.append(f"{d['name']}: derive-from {d['derive']!r} undefined"); continue
+        n = src["body"].count(d["find"])
+        if n != 1:
+            errors.append(f"{d['name']}: anchor {d['find']!r} matched {n}x in {src['name']}, expected 1")
+            continue
+        d["body"] = src["body"].replace(d["find"], d["repl"])
+
+    b = d["body"]
+    if not b:
+        errors.append(f"{d['name']}: empty body"); continue
+    if not b.startswith("let"):
+        errors.append(f"{d['name']}: body does not start with 'let' (starts {b[:20]!r})")
+
+    # comments and string literals removed: used for balance and reference checks
+    code = re.sub(r'//[^\n]*', '', re.sub(r'/\*.*?\*/', '', b, flags=re.S))
+    code = re.sub(r'"(?:[^"]|"")*"', '""', code)
+    d["code"] = code
+    for open_c, close_c in (("(", ")"), ("[", "]"), ("{", "}")):
+        if code.count(open_c) != code.count(close_c):
+            errors.append(f"{d['name']}: unbalanced {open_c}{close_c} "
+                          f"({code.count(open_c)} vs {code.count(close_c)})")
+
+# reference order: a query may only call ones created before it
+seen = set()
+for d in defs:
+    for other in by_name:
+        if other == d["name"] or other in seen:
+            continue
+        if re.search(rf'(?<![\w.]){re.escape(other)}(?![\w])', d["code"]):
+            errors.append(f"{d['name']}: references {other}, which is created later")
+    seen.add(d["name"])
+
+for d in defs:
+    print(f"  {d['name']:<18} {d['load']:<22} {len(d['body'].splitlines()):>3} lines"
+          + (f"  (derived from {d['derive']})" if d["derive"] else ""))
+print(f"\n{len(defs)} queries parsed")
+
+if errors:
+    print("\nFAIL")
+    for e in errors:
+        print("  -", e)
+    sys.exit(1)
+print("OK — parse clean, ready for import_queries.ps1")
