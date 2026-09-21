@@ -266,6 +266,8 @@ plus three-container edge cases:
 | `import_queries.ps1` | Windows + Excel | Imports every query into the workbook. Re-runnable. |
 | `check_queries.py` | anywhere | Validates the `.m` without Excel. Run before importing. |
 | `make_test_stanje.py` | anywhere | Generates a synthetic older `Stanje` export for local testing. |
+| `UPUTE_NABAVA.md` / `.pdf` | - | Handover instructions for the end user, in Croatian. |
+| `make_pdf.py` | anywhere | Renders the handover Markdown to a print-ready A4 PDF (needs `weasyprint`). |
 | `data/` | — | The ERP exports. |
 
 ### Testing stock movement locally
