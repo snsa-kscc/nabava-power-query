@@ -90,7 +90,7 @@ KNOWN_M = {
     "Number.Abs", "Number.From", "Number.FromText", "Number.Round",
     "Order.Ascending", "Order.Descending",
     "Table.AddColumn", "Table.AddIndexColumn", "Table.Buffer", "Table.Column",
-    "Table.ColumnNames", "Table.Combine", "Table.Distinct",
+    "Table.ColumnNames", "Table.HasColumns", "Record.FieldOrDefault", "Text.Contains", "Table.Combine", "Table.Distinct",
     "Table.ExpandRecordColumn", "Table.FirstN", "Table.Group",
     "Table.NestedJoin", "Table.PromoteHeaders", "Table.RemoveColumns",
     "Table.RenameColumns", "Table.RowCount", "Table.SelectColumns",

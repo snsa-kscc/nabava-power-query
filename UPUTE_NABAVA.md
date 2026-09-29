@@ -86,6 +86,9 @@ Model prepoznaje datoteke po početku naziva i **datum čita iz naziva datoteke*
 Zato ostavite nazive kakve ERP daje. Ako preimenujete datoteku i izgubite datum
 iz naziva, model će uzeti datum zadnje izmjene datoteke, što je manje pouzdano.
 
+Izvoz iz ERP-a stavite u mapu **točno kakav jest** — i `.xls` i `.xlsx` rade.
+Ne treba ga otvarati, spremati kao drugi format niti preimenovati.
+
 Datoteke narudžbi dobavljačima smiju ostati u mapi — model ih preskače.
 Isto tako preskače i samu sebe.
 
