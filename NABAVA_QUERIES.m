@@ -157,6 +157,19 @@ let
     // when only ONE Stanje export exists, "previous" falls back to the current
     // one, so movement reads zero instead of erroring on a missing element.
     idx = 0,                                     // <<< qStanjePrethodno: idx = 1
+    // A real .xlsx gives numbers as numbers. The legacy reader (a renamed .xls)
+    // gives them as text with a decimal POINT, "82.5", which hr-HR would read
+    // as 825. So: a comma means Croatian format, otherwise a point is decimal.
+    uBroj = (v) as number =>
+        if v = null then 0
+        else if v is number then v
+        else let t = Text.Trim(Text.From(v)) in
+            if t = "" then 0
+            else if Text.Contains(t, ",") then Number.From(t, "hr-HR")
+            else Number.From(t, "en-US"),
+    // the export ends with a totals row: a count in Artikal and no name
+    imaNaziv = (r as record) as logical =>
+        Text.Trim(Text.From(Record.FieldOrDefault(r, "NazivArtikla", "?") ?? "")) <> "",
     datoteke = fnDatoteke("stanje"),
     broj     = Table.RowCount(datoteke),
     odabrana = if broj = 0
@@ -201,10 +214,11 @@ let
         {"SifraDobavljaca", type text}, {"NazivDobavljaca", type text}
     }, "hr-HR"),
     zalihaBroj = Table.TransformColumns(tipovi,
-        {{"Zaliha", each Number.From(_, "hr-HR") ?? 0, type number}}),
+        {{"Zaliha", uBroj, type number}}),
     ocisceno = Table.TransformColumns(zalihaBroj,
         {{"Artikal", each Text.Trim(Text.From(_)), type text}}),
-    bezPraznih = Table.SelectRows(ocisceno, each [Artikal] <> null and [Artikal] <> "")
+    bezPraznih = Table.SelectRows(ocisceno, each
+        [Artikal] <> null and [Artikal] <> "" and imaNaziv(_))
 in
     bezPraznih
 
@@ -225,6 +239,20 @@ in
 let
     mjeseci = {"Sijecanj","Veljaca","Ozujak","Travanj","Svibanj","Lipanj",
                "Srpanj","Kolovoz","Rujan","Listopad","Studeni","Prosinac"},
+    // same helpers as qStanje. A real .xlsx gives numbers as numbers. The legacy
+    // reader (a renamed .xls)
+    // gives them as text with a decimal POINT, "82.5", which hr-HR would read
+    // as 825. So: a comma means Croatian format, otherwise a point is decimal.
+    uBroj = (v) as number =>
+        if v = null then 0
+        else if v is number then v
+        else let t = Text.Trim(Text.From(v)) in
+            if t = "" then 0
+            else if Text.Contains(t, ",") then Number.From(t, "hr-HR")
+            else Number.From(t, "en-US"),
+    // the export ends with a totals row: a count in Artikal and no name
+    imaNaziv = (r as record) as logical =>
+        Text.Trim(Text.From(Record.FieldOrDefault(r, "NazivArtikla", "?") ?? "")) <> "",
 
     datoteke = fnDatoteke("analiza"),
     provjera = if Table.RowCount(datoteke) = 0
@@ -260,7 +288,8 @@ let
                             if cNaz <> null then {cNaz, "NazivArtikla"} else null
                         })),
             tekst  = Table.TransformColumnTypes(preim, {{"Artikal", type text}}, "hr-HR"),
-            cisto  = Table.SelectRows(tekst, each [Artikal] <> null and [Artikal] <> "")
+            cisto  = Table.SelectRows(tekst, each
+                        [Artikal] <> null and [Artikal] <> "" and imaNaziv(_))
         in
             cisto),
 
@@ -275,7 +304,7 @@ let
     unpivot = Table.UnpivotOtherColumns(razvuci,
         {"Artikal","NazivArtikla","Godina"}, "Mjesec", "Kolicina"),
     brojcano = Table.TransformColumns(unpivot,
-        {{"Kolicina", each Number.From(_, "hr-HR") ?? 0, type number}}),
+        {{"Kolicina", uBroj, type number}}),
     indeks = Table.AddColumn(brojcano, "Idx", each
         [Godina] * 12 + List.PositionOf(
             List.Transform(mjeseci, fnNorm), fnNorm([Mjesec])) + 1, Int64.Type),
