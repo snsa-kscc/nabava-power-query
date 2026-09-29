@@ -164,7 +164,14 @@ let
                else datoteke{List.Min({idx, broj - 1})},
     sadrzaj  = odabrana[Content],
     knjiga   = Excel.Workbook(sadrzaj, null, true),
-    listovi  = Table.SelectRows(knjiga, each [Kind] = "Sheet"),
+    // A file that is .xlsx by name only (an HTML/.xls export renamed) goes
+    // through the legacy reader, which returns no Kind column. Take its
+    // tables as they are, and name the file if even that fails.
+    listovi  = if Table.HasColumns(knjiga, "Kind")
+               then Table.SelectRows(knjiga, each [Kind] = "Sheet")
+               else if Table.HasColumns(knjiga, "Data") then knjiga
+               else error ("Datoteka '" & odabrana[Name] & "' nije ispravna "
+                    & "Excel datoteka. Otvorite je u Excelu i spremite kao .xlsx."),
     prvi     = listovi{0}[Data],                 // by position, not by name
     zaglavlje= Table.PromoteHeaders(prvi, [PromoteAllScalars=true]),
 
@@ -228,8 +235,14 @@ let
 
     ucitaj = Table.AddColumn(provjera, "Tab", each
         let
+            ime    = [Name],
             knjiga = Excel.Workbook([Content], null, true),
-            listovi= Table.SelectRows(knjiga, each [Kind] = "Sheet"),
+            // same guard as qStanje: a renamed .xls/HTML export has no Kind
+            listovi= if Table.HasColumns(knjiga, "Kind")
+                     then Table.SelectRows(knjiga, each [Kind] = "Sheet")
+                     else if Table.HasColumns(knjiga, "Data") then knjiga
+                     else error ("Datoteka '" & ime & "' nije ispravna "
+                          & "Excel datoteka. Otvorite je u Excelu i spremite kao .xlsx."),
             zag    = Table.PromoteHeaders(listovi{0}[Data], [PromoteAllScalars=true]),
             cArt   = fnStupac(zag, "Artikal"),
             cNaz   = fnStupac(zag, "Naziv"),
