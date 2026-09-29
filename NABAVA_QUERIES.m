@@ -101,18 +101,22 @@ in
 
 
 /* ════════════════════════════════════════════════════════════════
-   5.  fnDatoteke — every .xlsx in the folder whose normalised name
-                    starts with a given prefix, newest first.
+   5.  fnDatoteke — every .xlsx or .xls in the folder whose normalised
+                    name starts with a given prefix, newest first.
                     The date comes from the filename (DD_MM_YYYY),
-                    with the file timestamp as fallback.
+                    with the file timestamp as fallback. One file per
+                    date: if an .xls was also re-saved as .xlsx, the
+                    .xlsx wins.
    ════════════════════════════════════════════════════════════════ */
 /*@ query: fnDatoteke | load: connection */
 let
     fnDatoteke = (prefiks as text) as table =>
         let
             mapa = Folder.Files(Putanja),
+            // .xls too: the ERP export can go in as it comes, no Save As
             samoExcel = Table.SelectRows(mapa, each
-                Text.EndsWith(fnNorm([Name]), ".xlsx")
+                (Text.EndsWith(fnNorm([Name]), ".xlsx")
+                    or Text.EndsWith(fnNorm([Name]), ".xls"))
                 and not Text.StartsWith(fnNorm([Name]), "~$")
                 and not Text.StartsWith(fnNorm([Name]), "nabava")),
             odabir = Table.SelectRows(samoExcel, each
@@ -135,9 +139,15 @@ let
                 in
                     if kandidat = null then Date.From([Date modified]) else kandidat,
                 type date),
-            sortirano = Table.Sort(sDatumom, {{"DatumIzvoza", Order.Descending}})
+            // the same export as .xls and re-saved .xlsx would parse to one
+            // date, and qStanjePrethodno would compare the stock with itself
+            sXlsx = Table.AddColumn(sDatumom, "JeXlsx", each
+                Text.EndsWith(fnNorm([Name]), ".xlsx"), type logical),
+            sortirano = Table.Buffer(Table.Sort(sXlsx,
+                {{"DatumIzvoza", Order.Descending}, {"JeXlsx", Order.Descending}})),
+            poDatumu = Table.Distinct(sortirano, {"DatumIzvoza"})
         in
-            sortirano
+            poDatumu
 in
     fnDatoteke
 

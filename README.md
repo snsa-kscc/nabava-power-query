@@ -182,6 +182,16 @@ empty rows, ranks shipments chronologically per article and keeps the first thre
 **The workbook excludes itself** — `fnDatoteke` skips anything starting with
 `nabava` and any `~$` lock files, so it never tries to read itself as an export.
 
+**`.xls` works as well as `.xlsx`.** The ERP export can go into the folder
+exactly as it comes, no Save As, no renaming. A real `.xls` (or one renamed to
+`.xlsx`) is read by Excel's legacy reader, which differs in three ways the queries
+absorb: the navigation table has no `Kind` column, the header row may already be
+promoted, and numbers can arrive as text with a decimal point (`"82.5"`), which
+`hr-HR` would read as 825. Text with a comma is parsed as Croatian, otherwise the
+point is decimal. The totals row at the bottom of each export (a count in
+`Artikal`, no name) is dropped. If the same export exists as `.xls` and as a
+re-saved `.xlsx`, both parse to the same date and only the `.xlsx` is used.
+
 **Subfolders work.** `Folder.Files` recurses, and the filter only looks at the
 file name, never its path — so keeping the exports in a `data\` subfolder beside
 the workbook behaves exactly like keeping them loose. The one rule is that each
