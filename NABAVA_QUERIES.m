@@ -173,7 +173,9 @@ let
                else error ("Datoteka '" & odabrana[Name] & "' nije ispravna "
                     & "Excel datoteka. Otvorite je u Excelu i spremite kao .xlsx."),
     prvi     = listovi{0}[Data],                 // by position, not by name
-    zaglavlje= Table.PromoteHeaders(prvi, [PromoteAllScalars=true]),
+    // the legacy reader may already have promoted the header row
+    zaglavlje= if fnStupac(prvi, "Artikal") <> null then prvi
+               else Table.PromoteHeaders(prvi, [PromoteAllScalars=true]),
 
     cArt = fnStupac(zaglavlje, "Artikal"),
     cNaz = fnStupac(zaglavlje, "Naziv artikla"),
@@ -243,7 +245,9 @@ let
                      else if Table.HasColumns(knjiga, "Data") then knjiga
                      else error ("Datoteka '" & ime & "' nije ispravna "
                           & "Excel datoteka. Otvorite je u Excelu i spremite kao .xlsx."),
-            zag    = Table.PromoteHeaders(listovi{0}[Data], [PromoteAllScalars=true]),
+            prvi   = listovi{0}[Data],
+            zag    = if fnStupac(prvi, "Artikal") <> null then prvi
+                     else Table.PromoteHeaders(prvi, [PromoteAllScalars=true]),
             cArt   = fnStupac(zag, "Artikal"),
             cNaz   = fnStupac(zag, "Naziv"),
             imena  = List.RemoveNulls(
