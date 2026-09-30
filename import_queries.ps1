@@ -100,8 +100,9 @@ function Add-Cf($fc, $fill, $font) {
 }
 
 function Set-Look($rng, [string]$font, [double]$size, [bool]$bold, $color, $fill, [int]$hAlign) {
-    $rng.Font.Name = $font
-    $rng.Font.Size = $size
+    # font name/size left to the workbook (Calibri) unless one is given
+    if ($font -ne "") { $rng.Font.Name = $font }
+    if ($size -gt 0)  { $rng.Font.Size = $size }
     $rng.Font.Bold = $bold
     if ($color -ne $null) { $rng.Font.Color = $color }
     if ($fill -ne $null)  { $rng.Interior.Color = $fill }
@@ -121,9 +122,9 @@ function Set-NabavaLayout($excel, $wb, $ws, $lo) {
     $left   = -4131      # xlLeft
 
     $ws.Range("A1").Value2 = "NABAVA - planiranje narud" + $zh + "bi"
-    Set-Look $ws.Range("A1") "Cambria" 14 $true $null $null 0
+    Set-Look $ws.Range("A1") "" 14 $true $null $null 0
     $ws.Range("A2").Formula = '="Prag "&Prag&" mjeseci ' + $dot + ' roba na brodu se NE pribraja zalihi ' + $dot + ' do tri dolaska po artiklu"'
-    Set-Look $ws.Range("A2") "Cambria" 9 $false $grey $null 0
+    Set-Look $ws.Range("A2") "" 9 $false $grey $null 0
     $ws.Rows.Item(1).RowHeight = 17.35
     $ws.Rows.Item(4).RowHeight = 35.05
 
@@ -134,30 +135,31 @@ function Set-NabavaLayout($excel, $wb, $ws, $lo) {
     $ws.Range("S:AD").ColumnWidth = 7
 
     if ($lo -ne $null) {
-        # no table style: ver03 is plain cells with grey borders, no banding
+        # no table style: ver03 is plain cells with grey borders, no banding.
+        # Fonts stay Calibri on purpose; only colours, weight and borders follow ver03.
         $lo.TableStyle = ""
         try { $lo.QueryTable.PreserveFormatting = $true } catch { }
 
         $hdr = $ws.Range("A4:Q4")
-        Set-Look $hdr "Cambria" 10 $true $white $navy $center
+        Set-Look $hdr "" 0 $true $white $navy $center
         $hdr.VerticalAlignment = $center
         $hdr.WrapText = $true
         $mh = $ws.Range("S4:AD4")
-        Set-Look $mh "Cambria" 10 $true $white $blue $center
+        Set-Look $mh "" 0 $true $white $blue $center
         $mh.VerticalAlignment = $center
         foreach ($r in @($hdr, $mh)) {
             $r.Borders.LineStyle = 1; $r.Borders.Weight = 2; $r.Borders.Color = $line
         }
         # spacer header: invisible
-        Set-Look $ws.Range("R4") "Cambria" 10 $false $white $white 0
+        Set-Look $ws.Range("R4") "" 0 $false $white $white 0
 
         $n = $lo.ListRows.Count
         if ($n -gt 0) {
             $last = 4 + $n
             $body = $ws.Range("A5:Q$last")
-            Set-Look $body "Cambria" 10 $false $null $null $center
+            Set-Look $body "" 0 $false $null $null $center
             $body.Borders.LineStyle = 1; $body.Borders.Weight = 2; $body.Borders.Color = $line
-            Set-Look $ws.Range("A5:A$last") "Consolas" 10 $false $null $null $left
+            Set-Look $ws.Range("A5:A$last") "" 0 $false $null $null $left
             $ws.Range("B5:B$last").HorizontalAlignment = $left
             $ws.Range("D5:D$last").HorizontalAlignment = $left
             $ws.Range("Q5:Q$last").HorizontalAlignment = $left
@@ -167,7 +169,7 @@ function Set-NabavaLayout($excel, $wb, $ws, $lo) {
             $ws.Range("R5:R$last").Borders.LineStyle = -4142   # xlNone
 
             $mb = $ws.Range("S5:AD$last")
-            Set-Look $mb "Cambria" 9 $false $grey $null $center
+            Set-Look $mb "" 0 $false $grey $null $center
             $mb.Borders.LineStyle = 1; $mb.Borders.Weight = 2; $mb.Borders.Color = $line
         }
     }
