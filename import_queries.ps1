@@ -86,6 +86,61 @@ foreach ($d in $defs) {
 
 Write-Host ("Parsed {0} queries: {1}" -f $defs.Count, (($defs | ForEach-Object { $_.Name }) -join ', '))
 
+# ---- NABAVA sheet layout -------------------------------------------------
+# The colour rules, title and frozen panes are (re)applied here on every run,
+# so they always sit on the columns the query actually loads to, the same as
+# in NABAVA_model_ver03.xlsx. Rule types that take no worksheet formula are
+# used on purpose: a CF formula passed through COM is read in the UI language
+# (ISNUMBER vs ISBROJ, "," vs ";") and relative to the active cell.
+function Get-Bgr([int]$r, [int]$g, [int]$b) { return $r + 256 * $g + 65536 * $b }
+
+function Add-Cf($fc, $fill, $font) {
+    $fc.Interior.Color = $fill
+    if ($font -ne $null) { $fc.Font.Color = $font }
+}
+
+function Set-NabavaLayout($excel, $wb, $ws) {
+    $zh = [char]0x017E   # z with caron
+    $dot = [char]0x00B7  # middle dot
+    $ws.Range("A1").Value2 = "NABAVA - planiranje narud" + $zh + "bi"
+    $ws.Range("A1").Font.Bold = $true
+    $ws.Range("A1").Font.Size = 14
+    $ws.Range("A2").Formula = '="Prag "&Prag&" mjeseci ' + $dot + ' roba na brodu se NE pribraja zalihi ' + $dot + ' do tri dolaska po artiklu"'
+
+    $red    = Get-Bgr 248 203 203; $redF    = Get-Bgr 156 0 6
+    $orange = Get-Bgr 252 228 196; $orangeF = Get-Bgr 138 75 0
+    $green  = Get-Bgr 212 237 218; $greenF  = Get-Bgr 20 83 45
+    $yellow = Get-Bgr 255 240 199
+    $m = [Type]::Missing
+
+    # STATUS (Q): xlTextString (9), xlContains (0)
+    $q = $ws.Range("Q5:Q5000")
+    Add-Cf ($q.FormatConditions.Add(9, $m, $m, $m, "Rupa", 0))          $red    $redF
+    Add-Cf ($q.FormatConditions.Add(9, $m, $m, $m, "odmah", 0))         $red    $redF
+    Add-Cf ($q.FormatConditions.Add(9, $m, $m, $m, "nije dovoljna", 0)) $orange $orangeF
+    Add-Cf ($q.FormatConditions.Add(9, $m, $m, $m, "Sve u redu", 0))    $green  $greenF
+    Add-Cf ($q.FormatConditions.Add(9, $m, $m, $m, "na vrijeme", 0))    $green  $greenF
+
+    # Zaliha traje (I): xlCellValue (1). 999 means "no sales", so below the
+    # threshold already implies sales > 0, as the ver03 rule AND(I<Prag,H>0) did.
+    $i = $ws.Range("I5:I5000")
+    Add-Cf ($i.FormatConditions.Add(1, 6, "=Prag"))          $red   $redF     # xlLess
+    Add-Cf ($i.FormatConditions.Add(1, 1, "=Prag", "=899"))  $green $greenF   # xlBetween
+
+    # Izlaz (G): xlCellValue (1), xlGreater (5)
+    $g = $ws.Range("G5:G5000")
+    Add-Cf ($g.FormatConditions.Add(1, 5, "=0")) $yellow $null
+
+    try {
+        $ws.Activate()
+        $win = $wb.Windows.Item(1)
+        $win.FreezePanes = $false
+        $win.ScrollRow = 1; $win.ScrollColumn = 1
+        $win.SplitColumn = 2; $win.SplitRow = 4
+        $win.FreezePanes = $true
+    } catch { Write-Warning "could not freeze panes on $($ws.Name): $_" }
+}
+
 # ---- push them into the workbook ---------------------------------------
 $excel = New-Object -ComObject Excel.Application
 $excel.Visible = $false
@@ -127,6 +182,12 @@ try {
 
     foreach ($d in @($defs | Where-Object { $_.Load -eq 'sheet' })) {
         $ws   = $wb.Worksheets.Item($d.Sheet)
+        if ($d.Name -eq 'qNabava') {
+            # start from a clean sheet: an earlier import may have shifted the
+            # title and the colour rules to the right of the table
+            $ws.Cells.FormatConditions.Delete()
+            $ws.Cells.Clear()
+        }
         $dest = $ws.Range($d.Cell)
         $conn = 'OLEDB;Provider=Microsoft.Mashup.OleDb.1;Data Source=$Workbook$;Location=' + $d.Name + ';Extended Properties=""'
         $lo   = $ws.ListObjects.Add(0, $conn, $null, 1, $dest)   # xlSrcExternal, xlYes
@@ -135,6 +196,9 @@ try {
         $qt.CommandText       = "SELECT * FROM [$($d.Name)]"
         $qt.BackgroundQuery   = $false
         $qt.AdjustColumnWidth = $false
+        # xlOverwriteCells (0). The default, xlInsertDeleteCells, inserts the
+        # table's columns and pushes everything already on the sheet to the right.
+        $qt.RefreshStyle      = 0
         # A refresh failure must not cost us the ten queries we just added, so the
         # queries and the table are kept and saved either way.
         try {
@@ -155,6 +219,11 @@ try {
                 Write-Host ""
             }
             $script:refreshFailed = $true
+        }
+        # applied after a failed refresh too: the rules sit on fixed columns
+        if ($d.Name -eq 'qNabava') {
+            Set-NabavaLayout $excel $wb $ws
+            Write-Host "  -> NABAVA layout: title, colour rules, frozen panes"
         }
     }
 

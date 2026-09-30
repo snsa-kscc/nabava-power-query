@@ -69,8 +69,12 @@ queries are in, the file is self-contained and the end user never touches any of
    | 10 | `qNabava` | **Load to sheet NABAVA, cell A4** |
 
 3. Load `qNabava` with `Zatvori i učitaj u… → Tablica → Postojeći radni list →
-   `=NABAVA!$A$4`. The conditional formatting is already bound to `Q5:Q4000`
-   (STATUS) and `I5:I4000` (Zaliha traje), so it lights up on first load.
+   `=NABAVA!$A$4`. `import_queries.ps1` then lays out the NABAVA sheet the way
+   `NABAVA_model_ver03.xlsx` does: title, the colour rules on `G` (Izlaz),
+   `I` (Zaliha traje) and `Q` (STATUS), and panes frozen at `C5`. It loads with `RefreshStyle = xlOverwriteCells`; Excel's default inserts
+   the table's columns and pushes the title and the rules to the right, which is
+   what the first import did. Loading by hand gives you that default, so after a
+   manual load run the script once anyway.
 
 4. **Allow the privacy firewall.** `Putanja` reads the folder out of a cell and
    `fnDatoteke` then reads the disk, and Power Query refuses to combine a query
@@ -256,13 +260,13 @@ plus three-container edge cases:
 | Case | Result |
 |---|---|
 | 2000 stock, no order | Sve u redu |
-| 1000 stock, no order | Naruci odmah |
+| 1000 stock, no order | Naruči odmah |
 | 1000 + 1000 @ 4mj | Rupa |
-| 1500 + 300 @ 4mj | Kolicina nije dovoljna |
+| 1500 + 300 @ 4mj | Količina nije dovoljna |
 | 2000 + 1500 @ 4mj | Sve u redu |
 | 900 + 300@2 + 300@4 + 900@9 | Rupa nakon 2. dolaska |
 | 900 + 150@2 + 900@6 | Rupa nakon 1. dolaska |
-| 900 + 900@2 + 900@5 + 900@8 | Kolicina nije dovoljna (break-even supply, 4.0 mj cover) |
+| 900 + 900@2 + 900@5 + 900@8 | Količina nije dovoljna (break-even supply, 4.0 mj cover) |
 | avg 0 | Nema prodaje |
 
 ---
