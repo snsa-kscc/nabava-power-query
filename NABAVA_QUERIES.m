@@ -81,7 +81,7 @@ in
 
 
 /* ════════════════════════════════════════════════════════════════
-   4.  Postavke   — Prag / Tranzit / RollingN as numbers
+   4.  Postavke   — Prag / Tranzit / RollingN (max completed months) as numbers
    ════════════════════════════════════════════════════════════════ */
 /*@ query: Postavke | load: connection */
 let
@@ -236,14 +236,15 @@ in
 /*@ query: qStanjePrethodno | load: connection | derive-from: qStanje | replace-once: idx = 0 => idx = 1 */
 
 /* ════════════════════════════════════════════════════════════════
-   6c. qProdaja  — rolling average across ALL Analiza prodaje files
+   6c. qProdaja  — monthly average, the same way as NABAVA_model_ver03
    ════════════════════════════════════════════════════════════════
 
-   This is the year-rollover answer. Every Analiza prodaje file in the
-   folder is read, each month becomes a row tagged with its year, and the
-   average is taken over the last RollingN COMPLETED months. In January
-   2027 the window is Feb-Dec 2026, so the average never divides by one.
-   Keeping the 2026 file in the folder is the only manual step.
+   Average = (Sij .. month N of the newest export's year) / N, where N is
+   the number of COMPLETED months this year (export of 28.09. -> 8, Sij-Kol),
+   capped by POSTAVKE!B8 (RollingN). ver03 typed N by hand in POSTAVKE!B7;
+   here it follows the export date. In January nothing is completed yet, so
+   the previous year's Sij-Pro / 12 is used instead of an all-zero average:
+   keep last year's Analiza file in the folder for that.
 */
 /*@ query: qProdaja | load: connection */
 let
@@ -271,7 +272,6 @@ let
 
     // the newest export defines "now"; months before it are completed
     najnoviji  = provjera{0}[DatumIzvoza],
-    tekuciIdx  = Date.Year(najnoviji) * 12 + Date.Month(najnoviji),
 
     ucitaj = Table.AddColumn(provjera, "Tab", each
         let
@@ -327,9 +327,13 @@ let
 
     // completed months only: the current, partial month is excluded because
     // a 3-day month would drag every average down
-    uProzoru = (i as number) as logical =>
-        i < tekuciIdx and i >= tekuciIdx - Postavke[RollingN],
     godina   = Date.Year(najnoviji),
+    zavrseno = Date.Month(najnoviji) - 1,
+    n        = List.Max({0, List.Min({Postavke[RollingN], zavrseno})}),
+    prozorGod = if n > 0 then godina else godina - 1,
+    prozorN   = if n > 0 then n else 12,
+    uProzoru = (i as number) as logical =>
+        i >= prozorGod * 12 + 1 and i <= prozorGod * 12 + prozorN,
 
     // every article sold in the window OR this year, so the month block on
     // NABAVA also shows an article whose only sales are in the current month
@@ -337,13 +341,11 @@ let
     grupirano = Table.Group(relevantno, {"Artikal"}, {
         {"NazivArtikla", each List.First([NazivArtikla]), type text},
         {"Zbroj", each List.Sum(List.Transform(
-            Table.SelectRows(_, each uProzoru([Idx]))[Kolicina], each _ ?? 0)), type number},
-        {"BrojMjeseci", each List.Count(List.Distinct(
-            Table.SelectRows(_, each uProzoru([Idx]))[Idx])), Int64.Type}
+            Table.SelectRows(_, each uProzoru([Idx]))[Kolicina], each _ ?? 0)), type number}
     }),
+    // fixed divisor, as ver03's SUM(OFFSET(...,B7))/B7
     prosjek = Table.AddColumn(grupirano, "Prosjek", each
-        if [BrojMjeseci] = 0 then 0
-        else Number.Round([Zbroj] / [BrojMjeseci], 2), type number),
+        Number.Round(([Zbroj] ?? 0) / prozorN, 2, RoundingMode.AwayFromZero), type number),
 
     // raw monthly sales of the newest export's year, Mj1..Mj12, for the
     // Sij..Pro block to the right of STATUS (the partial month included,
@@ -449,7 +451,7 @@ let
             m3 = if d3 = null then 0 else d3[#"Mjeseci do dolaska"],
             q3 = if d3 = null then 0 else d3[Kolicina],
 
-            traje = if prosjek <= 0 then 999 else Number.Round(zaliha / prosjek, 1),
+            traje = if prosjek <= 0 then 999 else Number.Round(zaliha / prosjek, 1, RoundingMode.AwayFromZero),
 
             // walk the stock forward; a negative level before a shipment is a gap
             n1 = zaliha - prosjek * m1,
@@ -460,7 +462,7 @@ let
                       else if q1 > 0 then n1 + q1
                       else zaliha,
             pokrivenost = if prosjek <= 0 then 999
-                          else Number.Round(ostatak / prosjek, 1),
+                          else Number.Round(ostatak / prosjek, 1, RoundingMode.AwayFromZero),
 
             status =
                 if prosjek <= 0 then "Nema prodaje"
@@ -473,7 +475,8 @@ let
                 else if traje >= prag then "Sve u redu"
                 else "Stiže na vrijeme"
         in
-            [ NazivArtikla = naziv,
+            [ UStanju = s <> null,
+              NazivArtikla = naziv,
               SifraDob = if s = null then "" else s[SifraDobavljaca],
               NazivDob = if s = null then "" else s[NazivDobavljaca],
               ZalihaPrethodno = prethodno,
@@ -486,7 +489,7 @@ let
               Status = status ]),
 
     prosireno = Table.ExpandRecordColumn(polja, "X",
-        {"NazivArtikla","SifraDob","NazivDob","ZalihaPrethodno","Zaliha","Izlaz",
+        {"UStanju","NazivArtikla","SifraDob","NazivDob","ZalihaPrethodno","Zaliha","Izlaz",
          "Prosjek","Traje","M1","Q1","M2","Q2","M3","Q3","Pokrivenost","Status"}),
 
     // the Sij..Pro block: this year's raw monthly sales, 0 where none
@@ -501,21 +504,16 @@ let
     razmak   = Table.AddColumn(mjNule, " ", each null),
 
     konacno = Table.SelectColumns(razmak,
-        {"Artikal","NazivArtikla","SifraDob","NazivDob","ZalihaPrethodno","Zaliha",
+        {"UStanju","Artikal","NazivArtikla","SifraDob","NazivDob","ZalihaPrethodno","Zaliha",
          "Izlaz","Prosjek","Traje","M1","Q1","M2","Q2","M3","Q3","Pokrivenost","Status"," "}
         & mjKol),
 
-    // worst first
-    redoslijed = Table.AddColumn(konacno, "H", each
-        if Text.StartsWith([Status], "Rupa") then 1
-        else if [Status] = "Naruči odmah" then 2
-        else if [Status] = "Količina nije dovoljna" then 3
-        else if [Status] = "Stiže na vrijeme" then 4
-        else if [Status] = "Sve u redu" then 5
-        else 6, Int64.Type),
-    sortirano = Table.Sort(redoslijed, {{"H", Order.Ascending},
-                                        {"Traje", Order.Ascending}}),
-    bezPomocnog = Table.RemoveColumns(sortirano, {"H"}),
+    // ver03 order: articles in the stock export by current stock, largest
+    // first; then the ones missing from it (sales or shipments only)
+    sortirano = Table.Sort(konacno, {
+        {"UStanju", Order.Descending}, {"Zaliha", Order.Descending},
+        {"ZalihaPrethodno", Order.Descending}, {"Artikal", Order.Ascending}}),
+    bezPomocnog = Table.RemoveColumns(sortirano, {"UStanju"}),
 
     // "Zaliha 31.08." / "Izlaz od 31.08.": the date of the export that
     // qStanjePrethodno read (the newest one when there is only one)

@@ -92,7 +92,7 @@ KNOWN_M = {
     "Table.AddColumn", "Table.AddIndexColumn", "Table.Buffer", "Table.Column",
     "Table.ColumnNames", "Table.HasColumns", "Record.FieldOrDefault", "Text.Contains",
     "Date.Day", "List.Skip", "List.Zip", "Number.ToText", "Table.ExpandTableColumn",
-    "Table.Pivot", "Text.PadStart", "Table.Combine", "Table.Distinct",
+    "Table.Pivot", "Text.PadStart", "RoundingMode.AwayFromZero", "Table.Combine", "Table.Distinct",
     "Table.ExpandRecordColumn", "Table.FirstN", "Table.Group",
     "Table.NestedJoin", "Table.PromoteHeaders", "Table.RemoveColumns",
     "Table.RenameColumns", "Table.RowCount", "Table.SelectColumns",

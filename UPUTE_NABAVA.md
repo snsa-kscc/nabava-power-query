@@ -114,9 +114,11 @@ Koliko često izvozite, toliko gust je i prikaz izlaza:
 - izvoz svaki dan → dnevni izlaz
 - zadržite izvoz s 1. u mjesecu i jedan svježi → izlaz od početka mjeseca
 
-**`Analiza prodaje` — čuvajte i prošlogodišnju.** Prosjek se računa preko
-zadnjih 12 **završenih** mjeseci. U siječnju 2027. to znači velik dio 2026.,
-pa datoteka iz 2026. mora ostati u mapi. Ako se u mapi nađe više izvoza prodaje
+**`Analiza prodaje` — čuvajte i prošlogodišnju.** Prosjek je zbroj prodaje od
+siječnja do zadnjeg **završenog** mjeseca tekuće godine, podijeljen brojem tih
+mjeseci (izvoz od 28.09. → siječanj–kolovoz, dijeli se s 8). U siječnju još nema
+završenog mjeseca, pa se uzima cijela prethodna godina / 12 — zato datoteka iz
+prošle godine mora ostati u mapi. Ako se u mapi nađe više izvoza prodaje
 iz iste godine, uzima se najnoviji.
 
 Tekući, nedovršeni mjesec se uvijek izbacuje iz prosjeka — inače bi tri dana
@@ -168,7 +170,7 @@ oko 70 redaka.
 |---|---|---|
 | `B4` Mapa modela | automatski | datoteka sama prepozna svoju mapu — ne dirajte |
 | `B6` Sigurnosni prag (mjeseci) | **5** | ispod ovoliko mjeseci zaliha se pali alarm |
-| `B8` Kotrljajući prosjek (mjeseci) | **12** | duljina prozora za prosjek prodaje |
+| `B8` Broj završenih mjeseci prodaje (najviše) | **12** | ostavite 12: prosjek uzima sve završene mjesece ove godine; manji broj ga ograničava |
 | `B7` Tranzit iz Kine (mjeseci) | 4 | **samo podsjetnik** — model ga ne koristi |
 
 Ako povisite prag s 5 na 6, više artikala dobit će `Naruči odmah`. Ako smanjite
@@ -181,7 +183,7 @@ Nakon svake promjene: `Ctrl+Alt+F5`.
 
 ## 7. List `NABAVA` — što piše u stupcima
 
-Sortirano je tako da je najhitnije na vrhu.
+Sortirano po zalihi danas, od najveće prema najmanjoj; artikli kojih nema u izvozu stanja su na dnu.
 
 | Stupac | Značenje |
 |---|---|
@@ -190,7 +192,7 @@ Sortirano je tako da je najhitnije na vrhu.
 | `Zaliha 31.08.` | zaliha u prethodnom izvozu stanja (datum u nazivu stupca je datum tog izvoza) |
 | `Zaliha danas` | zaliha u najnovijem izvozu |
 | `Izlaz od 31.08.` | koliko je otišlo između dva izvoza |
-| `Prosjek/mj.` | prosječna mjesečna prodaja (12 završenih mjeseci) |
+| `Prosjek/mj.` | prosječna mjesečna prodaja (završeni mjeseci ove godine) |
 | `Zaliha traje (mj.)` | koliko mjeseci zaliha traje bez novih dolazaka |
 | `Stiže 1/2/3`, `Količina 1/2/3` | pošiljke iz `ROBA_U_DOLASKU` |
 | `Pokrivenost ukupno` | koliko mjeseci pokrivate kad se uračunaju dolasci |
