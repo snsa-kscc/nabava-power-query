@@ -99,13 +99,78 @@ function Add-Cf($fc, $fill, $font) {
     if ($font -ne $null) { $fc.Font.Color = $font }
 }
 
-function Set-NabavaLayout($excel, $wb, $ws) {
+function Set-Look($rng, [string]$font, [double]$size, [bool]$bold, $color, $fill, [int]$hAlign) {
+    $rng.Font.Name = $font
+    $rng.Font.Size = $size
+    $rng.Font.Bold = $bold
+    if ($color -ne $null) { $rng.Font.Color = $color }
+    if ($fill -ne $null)  { $rng.Interior.Color = $fill }
+    if ($hAlign -ne 0)    { $rng.HorizontalAlignment = $hAlign }
+}
+
+function Set-NabavaLayout($excel, $wb, $ws, $lo) {
     $zh = [char]0x017E   # z with caron
     $dot = [char]0x00B7  # middle dot
+    $grey   = Get-Bgr 89 89 89
+    $white  = Get-Bgr 255 255 255
+    $navy   = Get-Bgr 31 78 121
+    $blue   = Get-Bgr 74 125 171
+    $line   = Get-Bgr 191 191 191
+    $pale   = Get-Bgr 234 241 248
+    $center = -4108      # xlCenter
+    $left   = -4131      # xlLeft
+
     $ws.Range("A1").Value2 = "NABAVA - planiranje narud" + $zh + "bi"
-    $ws.Range("A1").Font.Bold = $true
-    $ws.Range("A1").Font.Size = 14
+    Set-Look $ws.Range("A1") "Cambria" 14 $true $null $null 0
     $ws.Range("A2").Formula = '="Prag "&Prag&" mjeseci ' + $dot + ' roba na brodu se NE pribraja zalihi ' + $dot + ' do tri dolaska po artiklu"'
+    Set-Look $ws.Range("A2") "Cambria" 9 $false $grey $null 0
+    $ws.Rows.Item(1).RowHeight = 17.35
+    $ws.Rows.Item(4).RowHeight = 35.05
+
+    # column widths from ver03; R is the spacer
+    $widths = @{ A=14; B=32; C=9; D=28; E=11; F=11; G=11; H=10; I=11; J=9; K=10;
+                 L=9; M=10; N=9; O=10; P=11; Q=28; R=3 }
+    foreach ($k in $widths.Keys) { $ws.Columns.Item($k).ColumnWidth = $widths[$k] }
+    $ws.Range("S:AD").ColumnWidth = 7
+
+    if ($lo -ne $null) {
+        # no table style: ver03 is plain cells with grey borders, no banding
+        $lo.TableStyle = ""
+        try { $lo.QueryTable.PreserveFormatting = $true } catch { }
+
+        $hdr = $ws.Range("A4:Q4")
+        Set-Look $hdr "Cambria" 10 $true $white $navy $center
+        $hdr.VerticalAlignment = $center
+        $hdr.WrapText = $true
+        $mh = $ws.Range("S4:AD4")
+        Set-Look $mh "Cambria" 10 $true $white $blue $center
+        $mh.VerticalAlignment = $center
+        foreach ($r in @($hdr, $mh)) {
+            $r.Borders.LineStyle = 1; $r.Borders.Weight = 2; $r.Borders.Color = $line
+        }
+        # spacer header: invisible
+        Set-Look $ws.Range("R4") "Cambria" 10 $false $white $white 0
+
+        $n = $lo.ListRows.Count
+        if ($n -gt 0) {
+            $last = 4 + $n
+            $body = $ws.Range("A5:Q$last")
+            Set-Look $body "Cambria" 10 $false $null $null $center
+            $body.Borders.LineStyle = 1; $body.Borders.Weight = 2; $body.Borders.Color = $line
+            Set-Look $ws.Range("A5:A$last") "Consolas" 10 $false $null $null $left
+            $ws.Range("B5:B$last").HorizontalAlignment = $left
+            $ws.Range("D5:D$last").HorizontalAlignment = $left
+            $ws.Range("Q5:Q$last").HorizontalAlignment = $left
+            $ws.Range("E5:G$last").Interior.Color = $pale
+            foreach ($c in @("F", "I", "Q")) { $ws.Range("${c}5:$c$last").Font.Bold = $true }
+
+            $ws.Range("R5:R$last").Borders.LineStyle = -4142   # xlNone
+
+            $mb = $ws.Range("S5:AD$last")
+            Set-Look $mb "Cambria" 9 $false $grey $null $center
+            $mb.Borders.LineStyle = 1; $mb.Borders.Weight = 2; $mb.Borders.Color = $line
+        }
+    }
 
     $red    = Get-Bgr 248 203 203; $redF    = Get-Bgr 156 0 6
     $orange = Get-Bgr 252 228 196; $orangeF = Get-Bgr 138 75 0
@@ -138,6 +203,7 @@ function Set-NabavaLayout($excel, $wb, $ws) {
         $win.ScrollRow = 1; $win.ScrollColumn = 1
         $win.SplitColumn = 2; $win.SplitRow = 4
         $win.FreezePanes = $true
+        $win.DisplayGridlines = $false
     } catch { Write-Warning "could not freeze panes on $($ws.Name): $_" }
 }
 
@@ -222,7 +288,7 @@ try {
         }
         # applied after a failed refresh too: the rules sit on fixed columns
         if ($d.Name -eq 'qNabava') {
-            Set-NabavaLayout $excel $wb $ws
+            Set-NabavaLayout $excel $wb $ws $lo
             Write-Host "  -> NABAVA layout: title, colour rules, frozen panes"
         }
     }

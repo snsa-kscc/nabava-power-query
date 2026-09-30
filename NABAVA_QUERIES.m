@@ -395,7 +395,7 @@ in
 
    Column order is fixed here because import_queries.ps1 binds the colour
    rules to G (Izlaz), I (Zaliha traje) and Q (STATUS), as in
-   NABAVA_model_ver03.xlsx. Sij..Pro follow STATUS in R..AC.
+   NABAVA_model_ver03.xlsx. R is an empty spacer, Sij..Pro are S..AD.
    If you reorder columns, move the rules in Set-NabavaLayout too.
 */
 /*@ query: qNabava | load: sheet NABAVA!$A$4 */
@@ -496,9 +496,13 @@ let
     mjNule   = Table.TransformColumns(sMjesecima,
         List.Transform(mjKol, (k) => {k, each _ ?? 0, type number})),
 
-    konacno = Table.SelectColumns(mjNule,
+    // an empty column R between STATUS and the months, as in ver03; the
+    // header is a single space because a table header cannot be empty
+    razmak   = Table.AddColumn(mjNule, " ", each null),
+
+    konacno = Table.SelectColumns(razmak,
         {"Artikal","NazivArtikla","SifraDob","NazivDob","ZalihaPrethodno","Zaliha",
-         "Izlaz","Prosjek","Traje","M1","Q1","M2","Q2","M3","Q3","Pokrivenost","Status"}
+         "Izlaz","Prosjek","Traje","M1","Q1","M2","Q2","M3","Q3","Pokrivenost","Status"," "}
         & mjKol),
 
     // worst first
