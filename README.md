@@ -166,12 +166,20 @@ falls back to the current one and movement reads zero instead of erroring. So:
 
 **`Analiza prodaje`** — all of them are read, not just the newest. Each is tagged
 with its year, the newest file per year wins, months are unpivoted into one row
-each and indexed as `year*12 + month`. The average covers the last `RollingN`
-(12) **completed** months, ending before the newest export's month.
+each and indexed as `year*12 + month`. The average is computed the way
+`NABAVA_model_ver03.xlsx` does it: Sij … month N of the newest export's year,
+divided by N, where N is the number of **completed** months this year (28.09.
+export → 8, Sij–Kol), capped by `POSTAVKE!B8`. ver03 had N typed by hand in
+`POSTAVKE!B7`; here it follows the export date. Rounding is half away from zero,
+as Excel's `ROUND`, so the values match ver03 to the cent.
 
-That is the year-rollover answer. In January 2027 the window is Feb–Dec 2026 plus
-whatever 2027 has completed, so the average never divides by one month. The only
-manual act is leaving the 2026 file in the folder.
+In January nothing is completed yet, where ver03 would give every article a zero
+average. The query then uses the previous year's Sij–Pro / 12, so keep last
+year's Analiza file in the folder.
+
+**Row order on NABAVA** also follows ver03: articles in the stock export first,
+by current stock, largest first; then the ones that appear only in sales or in
+`ROBA_U_DOLASKU`.
 
 The current partial month is always excluded — the 03.09. export had 3 days in
 Rujan, which would have dragged every average down.

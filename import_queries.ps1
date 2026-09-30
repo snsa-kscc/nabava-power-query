@@ -243,6 +243,14 @@ try {
         }
     }
 
+    # POSTAVKE!B8 (RollingN) now caps the completed months of the average, as
+    # ver03's "Broj zavrsenih mjeseci prodaje"; relabel it in older files
+    try {
+        $ps = $wb.Worksheets.Item("POSTAVKE")
+        $ps.Range("A8").Value2 = "Broj zavrsenih mjeseci prodaje (najvise)"
+        $ps.Range("C8").Value2 = "12 = svi zavrseni mjeseci ove godine"
+    } catch { Write-Warning "could not relabel POSTAVKE!A8: $_" }
+
     foreach ($d in $defs) {
         $wb.Queries.Add($d.Name, $d.Body) | Out-Null
         Write-Host ("  + {0}" -f $d.Name)
