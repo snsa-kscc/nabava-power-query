@@ -185,8 +185,8 @@ try {
         if ($d.Name -eq 'qNabava') {
             # start from a clean sheet: an earlier import may have shifted the
             # title and the colour rules to the right of the table
-            $ws.Cells.FormatConditions.Delete()
-            $ws.Cells.Clear()
+            [void]$ws.Cells.FormatConditions.Delete()
+            [void]$ws.Cells.Clear()
         }
         $dest = $ws.Range($d.Cell)
         $conn = 'OLEDB;Provider=Microsoft.Mashup.OleDb.1;Data Source=$Workbook$;Location=' + $d.Name + ';Extended Properties=""'
