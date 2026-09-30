@@ -103,10 +103,10 @@ istog datuma i izlaz robe će svugdje pokazivati nulu, bez ikakve greške.
 ### 4.3. Čuvajte stare izvoze
 
 **`Stanje skladišta` — čuvajte barem dva.** Najnoviji je "danas", prethodni je
-ono s čime se poredi. Iz te razlike nastaju stupci `Zaliha prethodno` i
-`Izlaz od prethodnog`.
+ono s čime se poredi. Iz te razlike nastaju stupci `Zaliha 31.08.` i
+`Izlaz od 31.08.` (s datumom prethodnog izvoza u nazivu).
 
-Dok u mapi imate samo jedan izvoz stanja, stupac `Izlaz od prethodnog` bit će
+Dok u mapi imate samo jedan izvoz stanja, stupac `Izlaz od …` bit će
 nula na svim artiklima. To nije greška — model nema s čime usporediti.
 
 Koliko često izvozite, toliko gust je i prikaz izlaza:
@@ -171,7 +171,7 @@ oko 70 redaka.
 | `B8` Kotrljajući prosjek (mjeseci) | **12** | duljina prozora za prosjek prodaje |
 | `B7` Tranzit iz Kine (mjeseci) | 4 | **samo podsjetnik** — model ga ne koristi |
 
-Ako povisite prag s 5 na 6, više artikala dobit će `Naruci odmah`. Ako smanjite
+Ako povisite prag s 5 na 6, više artikala dobit će `Naruči odmah`. Ako smanjite
 prozor prosjeka s 12 na 6, prosjek će brže reagirati na sezonu, ali i na
 slučajne mjesece.
 
@@ -185,19 +185,20 @@ Sortirano je tako da je najhitnije na vrhu.
 
 | Stupac | Značenje |
 |---|---|
-| `Sifra`, `Naziv artikla` | artikal |
-| `Sifra dob.`, `Naziv dobavljaca` | dobavljač iz izvoza stanja |
-| `Zaliha prethodno` | zaliha u prethodnom izvozu stanja |
+| `Šifra`, `Naziv artikla` | artikal |
+| `Šifra dob.`, `Naziv dobavljača` | dobavljač iz izvoza stanja |
+| `Zaliha 31.08.` | zaliha u prethodnom izvozu stanja (datum u nazivu stupca je datum tog izvoza) |
 | `Zaliha danas` | zaliha u najnovijem izvozu |
-| `Izlaz od prethodnog` | koliko je otišlo između dva izvoza |
+| `Izlaz od 31.08.` | koliko je otišlo između dva izvoza |
 | `Prosjek/mj.` | prosječna mjesečna prodaja (12 završenih mjeseci) |
 | `Zaliha traje (mj.)` | koliko mjeseci zaliha traje bez novih dolazaka |
-| `Stize 1/2/3`, `Kolicina 1/2/3` | pošiljke iz `ROBA_U_DOLASKU` |
+| `Stiže 1/2/3`, `Količina 1/2/3` | pošiljke iz `ROBA_U_DOLASKU` |
 | `Pokrivenost ukupno` | koliko mjeseci pokrivate kad se uračunaju dolasci |
 | `STATUS` | zaključak, vidi niže |
+| `Sij` … `Pro` | prodaja po mjesecima u godini najnovije `Analiza prodaje` (tekući mjesec je djelomičan) |
 
 Artikli koji nisu u izvozu stanja (drugo skladište, novi artikl) svjesno su
-uključeni: `Zaliha danas` im je 0, a `Sifra dob.` i `Izlaz od prethodnog` ostaju
+uključeni: `Zaliha danas` im je 0, a `Šifra dob.` i `Izlaz od …` ostaju
 prazni. Takvih je 158 — 139 ih se pojavljuje samo u prodaji, a 19 samo u
 `ROBA_U_DOLASKU`.
 
@@ -208,15 +209,15 @@ prazni. Takvih je 158 — 139 ih se pojavljuje samo u prodaji, a 19 samo u
 | STATUS | Znači |
 |---|---|
 | `Sve u redu` | zaliha pokriva potrošnju dulje od praga |
-| `Naruci odmah` | zaliha pada pod prag, a ništa nije u dolasku |
+| `Naruči odmah` | zaliha pada pod prag, a ništa nije u dolasku |
 | `Rupa za ~X mj.` | ostat ćete bez robe za približno X mjeseci, prije prve pošiljke |
 | `Rupa nakon 1. dolaska` | prva pošiljka ne pokriva do druge |
 | `Rupa nakon 2. dolaska` | druga pošiljka ne pokriva do treće |
-| `Kolicina nije dovoljna` | pošiljke stižu na vrijeme, ali ih je ukupno premalo |
-| `Stize na vrijeme` | pošiljka stiže prije nego zaliha padne pod prag |
+| `Količina nije dovoljna` | pošiljke stižu na vrijeme, ali ih je ukupno premalo |
+| `Stiže na vrijeme` | pošiljka stiže prije nego zaliha padne pod prag |
 | `Nema prodaje` | artikl nema zabilježenu prodaju — prosjek je 0 |
 
-Boje na stupcima `STATUS` i `Zaliha traje (mj.)` pale se same.
+Boje na stupcima `STATUS`, `Zaliha traje (mj.)` i `Izlaz od …` pale se same.
 
 ---
 
@@ -227,7 +228,7 @@ Boje na stupcima `STATUS` i `Zaliha traje (mj.)` pale se same.
 | Pritisnete osvježi i **ništa se ne promijeni** | žuta traka iz točke 2.1. nije potvrđena. Zatvorite i ponovno otvorite datoteku, kliknite `Omogući sadržaj` |
 | `Spremite datoteku (Save) prije osvjezavanja.` | datoteka nije spremljena na disk — `Ctrl+S` |
 | `U mapi nema datoteke 'Stanje skladista...'` | izvoz nije u mapi ili mu je naziv promijenjen |
-| `Izlaz od prethodnog` je svugdje 0 | u mapi je samo jedan izvoz stanja, ili je isti izvoz na dva mjesta (točka 4.2) |
+| `Izlaz od …` je svugdje 0 | u mapi je samo jedan izvoz stanja, ili je isti izvoz na dva mjesta (točka 4.2) |
 | Prosjek izgleda prenizak | provjerite je li prošlogodišnja `Analiza prodaje` još u mapi |
 | Artikl ima zalihu, a `Naziv artikla` je prazan | artikl je samo u prodaji, nije u izvozu stanja |
 | Osvježavanje traje neuobičajeno dugo | provjerite koliko izvoza je u mapi; svaki se čita pri osvježavanju |

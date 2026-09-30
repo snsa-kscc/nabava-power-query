@@ -287,7 +287,13 @@ let
             zag    = if fnStupac(prvi, "Artikal") <> null then prvi
                      else Table.PromoteHeaders(prvi, [PromoteAllScalars=true]),
             cArt   = fnStupac(zag, "Artikal"),
-            cNaz   = fnStupac(zag, "Naziv"),
+            // two columns are called Naziv: the group's, then the article's.
+            // Take the first Naziv AFTER Artikal.
+            sviZag = Table.ColumnNames(zag),
+            nakonArt = if cArt = null then sviZag
+                       else List.Skip(sviZag, List.PositionOf(sviZag, cArt) + 1),
+            cNaz   = List.First(List.Select(nakonArt,
+                        each Text.StartsWith(fnNorm(_), "naziv")), fnStupac(zag, "Naziv")),
             imena  = List.RemoveNulls(
                         List.Transform(mjeseci, each fnStupac(zag, _))),
             uzmi   = Table.SelectColumns(zag,
@@ -321,19 +327,38 @@ let
 
     // completed months only: the current, partial month is excluded because
     // a 3-day month would drag every average down
-    zavrseni = Table.SelectRows(indeks, each [Idx] < tekuciIdx),
-    prozor   = Table.SelectRows(zavrseni, each [Idx] >= tekuciIdx - Postavke[RollingN]),
+    uProzoru = (i as number) as logical =>
+        i < tekuciIdx and i >= tekuciIdx - Postavke[RollingN],
+    godina   = Date.Year(najnoviji),
 
-    grupirano = Table.Group(prozor, {"Artikal"}, {
+    // every article sold in the window OR this year, so the month block on
+    // NABAVA also shows an article whose only sales are in the current month
+    relevantno = Table.SelectRows(indeks, each uProzoru([Idx]) or [Godina] = godina),
+    grupirano = Table.Group(relevantno, {"Artikal"}, {
         {"NazivArtikla", each List.First([NazivArtikla]), type text},
-        {"Zbroj", each List.Sum([Kolicina]), type number},
-        {"BrojMjeseci", each List.Count(List.Distinct([Idx])), Int64.Type}
+        {"Zbroj", each List.Sum(List.Transform(
+            Table.SelectRows(_, each uProzoru([Idx]))[Kolicina], each _ ?? 0)), type number},
+        {"BrojMjeseci", each List.Count(List.Distinct(
+            Table.SelectRows(_, each uProzoru([Idx]))[Idx])), Int64.Type}
     }),
     prosjek = Table.AddColumn(grupirano, "Prosjek", each
         if [BrojMjeseci] = 0 then 0
-        else Number.Round([Zbroj] / [BrojMjeseci], 2), type number)
+        else Number.Round([Zbroj] / [BrojMjeseci], 2), type number),
+
+    // raw monthly sales of the newest export's year, Mj1..Mj12, for the
+    // Sij..Pro block to the right of STATUS (the partial month included,
+    // as in the original model)
+    mjKol    = List.Transform({1..12}, each "Mj" & Text.From(_)),
+    oveGod   = Table.SelectRows(indeks, each [Godina] = godina),
+    kljuc    = Table.AddColumn(Table.SelectColumns(oveGod, {"Artikal","Idx","Kolicina"}),
+                   "Mj", each "Mj" & Text.From([Idx] - godina * 12), type text),
+    samoMj   = Table.SelectRows(kljuc, each List.Contains(mjKol, [Mj])),
+    pivot    = Table.Pivot(Table.RemoveColumns(samoMj, {"Idx"}),
+                   mjKol, "Mj", "Kolicina", List.Sum),
+    spojeno  = Table.NestedJoin(prosjek, {"Artikal"}, pivot, {"Artikal"}, "Mj", JoinKind.LeftOuter),
+    sMjesecima = Table.ExpandTableColumn(spojeno, "Mj", mjKol)
 in
-    prosjek
+    sMjesecima
 
 
 /* ════════════════════════════════════════════════════════════════
@@ -368,9 +393,10 @@ in
    7.  qNabava   — the main screen. LOAD THIS ONE TO THE SHEET.
    ════════════════════════════════════════════════════════════════
 
-   Column order is fixed here because the conditional formatting on the
-   NABAVA sheet is bound to column Q (STATUS) and I (Zaliha traje).
-   If you reorder columns, move the formatting too.
+   Column order is fixed here because import_queries.ps1 binds the colour
+   rules to G (Izlaz), I (Zaliha traje) and Q (STATUS), as in
+   NABAVA_model_ver03.xlsx. R is an empty spacer, Sij..Pro are S..AD.
+   If you reorder columns, move the rules in Set-NabavaLayout too.
 */
 /*@ query: qNabava | load: sheet NABAVA!$A$4 */
 let
@@ -439,13 +465,13 @@ let
             status =
                 if prosjek <= 0 then "Nema prodaje"
                 else if q1 = 0 and q2 = 0 and q3 = 0 then
-                    (if traje < prag then "Naruci odmah" else "Sve u redu")
-                else if n1 < 0 then "Rupa za ~" & Text.From(traje) & " mj."
+                    (if traje < prag then "Naruči odmah" else "Sve u redu")
+                else if n1 < 0 then "Rupa za ~" & Number.ToText(traje, "F1", "hr-HR") & " mj."
                 else if q2 > 0 and n2 < 0 then "Rupa nakon 1. dolaska"
                 else if q3 > 0 and n3 < 0 then "Rupa nakon 2. dolaska"
-                else if pokrivenost < prag then "Kolicina nije dovoljna"
+                else if pokrivenost < prag then "Količina nije dovoljna"
                 else if traje >= prag then "Sve u redu"
-                else "Stize na vrijeme"
+                else "Stiže na vrijeme"
         in
             [ NazivArtikla = naziv,
               SifraDob = if s = null then "" else s[SifraDobavljaca],
@@ -463,32 +489,53 @@ let
         {"NazivArtikla","SifraDob","NazivDob","ZalihaPrethodno","Zaliha","Izlaz",
          "Prosjek","Traje","M1","Q1","M2","Q2","M3","Q3","Pokrivenost","Status"}),
 
-    konacno = Table.SelectColumns(prosireno,
-        {"Artikal","NazivArtikla","SifraDob","NazivDob","ZalihaPrethodno","Zaliha",
-         "Izlaz","Prosjek","Traje","M1","Q1","M2","Q2","M3","Q3","Pokrivenost","Status"}),
+    // the Sij..Pro block: this year's raw monthly sales, 0 where none
+    mjKol    = List.Transform({1..12}, each "Mj" & Text.From(_)),
+    mjNazivi = {"Sij","Vel","Ožu","Tra","Svi","Lip","Srp","Kol","Ruj","Lis","Stu","Pro"},
+    sMjesecima = Table.ExpandTableColumn(prosireno, "R", mjKol),
+    mjNule   = Table.TransformColumns(sMjesecima,
+        List.Transform(mjKol, (k) => {k, each _ ?? 0, type number})),
 
-    imena = Table.RenameColumns(konacno, {
-        {"Artikal","Sifra"}, {"NazivArtikla","Naziv artikla"},
-        {"SifraDob","Sifra dob."}, {"NazivDob","Naziv dobavljaca"},
-        {"ZalihaPrethodno","Zaliha prethodno"}, {"Zaliha","Zaliha danas"},
-        {"Izlaz","Izlaz od prethodnog"}, {"Prosjek","Prosjek/mj."},
-        {"Traje","Zaliha traje (mj.)"},
-        {"M1","Stize 1"}, {"Q1","Kolicina 1"},
-        {"M2","Stize 2"}, {"Q2","Kolicina 2"},
-        {"M3","Stize 3"}, {"Q3","Kolicina 3"},
-        {"Pokrivenost","Pokrivenost ukupno"}, {"Status","STATUS"}
-    }),
+    // an empty column R between STATUS and the months, as in ver03; the
+    // header is a single space because a table header cannot be empty
+    razmak   = Table.AddColumn(mjNule, " ", each null),
+
+    konacno = Table.SelectColumns(razmak,
+        {"Artikal","NazivArtikla","SifraDob","NazivDob","ZalihaPrethodno","Zaliha",
+         "Izlaz","Prosjek","Traje","M1","Q1","M2","Q2","M3","Q3","Pokrivenost","Status"," "}
+        & mjKol),
 
     // worst first
-    redoslijed = Table.AddColumn(imena, "H", each
-        if Text.StartsWith([STATUS], "Rupa") then 1
-        else if [STATUS] = "Naruci odmah" then 2
-        else if [STATUS] = "Kolicina nije dovoljna" then 3
-        else if [STATUS] = "Stize na vrijeme" then 4
-        else if [STATUS] = "Sve u redu" then 5
+    redoslijed = Table.AddColumn(konacno, "H", each
+        if Text.StartsWith([Status], "Rupa") then 1
+        else if [Status] = "Naruči odmah" then 2
+        else if [Status] = "Količina nije dovoljna" then 3
+        else if [Status] = "Stiže na vrijeme" then 4
+        else if [Status] = "Sve u redu" then 5
         else 6, Int64.Type),
     sortirano = Table.Sort(redoslijed, {{"H", Order.Ascending},
-                                        {"Zaliha traje (mj.)", Order.Ascending}}),
-    bezPomocnog = Table.RemoveColumns(sortirano, {"H"})
+                                        {"Traje", Order.Ascending}}),
+    bezPomocnog = Table.RemoveColumns(sortirano, {"H"}),
+
+    // "Zaliha 31.08." / "Izlaz od 31.08.": the date of the export that
+    // qStanjePrethodno read (the newest one when there is only one)
+    stanja    = fnDatoteke("stanje"),
+    datPreth  = try stanja{List.Min({1, Table.RowCount(stanja) - 1})}[DatumIzvoza]
+                otherwise null,
+    dd        = (n as number) as text => Text.PadStart(Text.From(n), 2, "0"),
+    oznaka    = if datPreth = null then "prethodno"
+                else dd(Date.Day(datPreth)) & "." & dd(Date.Month(datPreth)) & ".",
+
+    imena = Table.RenameColumns(bezPomocnog, {
+        {"Artikal","Šifra"}, {"NazivArtikla","Naziv artikla"},
+        {"SifraDob","Šifra dob."}, {"NazivDob","Naziv dobavljača"},
+        {"ZalihaPrethodno","Zaliha " & oznaka}, {"Zaliha","Zaliha danas"},
+        {"Izlaz","Izlaz od " & oznaka}, {"Prosjek","Prosjek/mj."},
+        {"Traje","Zaliha traje (mj.)"},
+        {"M1","Stiže 1"}, {"Q1","Količina 1"},
+        {"M2","Stiže 2"}, {"Q2","Količina 2"},
+        {"M3","Stiže 3"}, {"Q3","Količina 3"},
+        {"Pokrivenost","Pokrivenost ukupno"}, {"Status","STATUS"}
+    } & List.Zip({mjKol, mjNazivi}))
 in
-    bezPomocnog
+    imena
