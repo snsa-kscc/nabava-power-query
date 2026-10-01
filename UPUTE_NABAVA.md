@@ -109,6 +109,13 @@ ono s čime se poredi. Iz te razlike nastaju stupci `Zaliha 31.08.` i
 Dok u mapi imate samo jedan izvoz stanja, stupac `Izlaz od …` bit će
 nula na svim artiklima. To nije greška — model nema s čime usporediti.
 
+**Ako je između dva izvoza stigla roba, `Izlaz od …` je prazan.** Model vidi
+samo dvije slike zalihe, a ne i koliko je robe ušlo. Primjer: 21.09. zaliha 64,
+30.09. stiglo 200, danas zaliha 239. Razlika je +175, a stvarni izlaz (25) se
+iz dva izvoza ne može izračunati, pa je polje prazno umjesto negativnog broja.
+Ostatak retka je točan: nova roba je u `Zaliha danas`, a `Zaliha traje` i
+`STATUS` računaju se s njom.
+
 Koliko često izvozite, toliko gust je i prikaz izlaza:
 
 - izvoz svaki dan → dnevni izlaz
@@ -191,7 +198,7 @@ Sortirano po zalihi danas, od najveće prema najmanjoj; artikli kojih nema u izv
 | `Šifra dob.`, `Naziv dobavljača` | dobavljač iz izvoza stanja |
 | `Zaliha 31.08.` | zaliha u prethodnom izvozu stanja (datum u nazivu stupca je datum tog izvoza) |
 | `Zaliha danas` | zaliha u najnovijem izvozu |
-| `Izlaz od 31.08.` | koliko je otišlo između dva izvoza |
+| `Izlaz od 31.08.` | koliko je otišlo između dva izvoza; prazno ako je zaliha u međuvremenu porasla (stigla roba) |
 | `Prosjek/mj.` | prosječna mjesečna prodaja (završeni mjeseci ove godine) |
 | `Zaliha traje (mj.)` | koliko mjeseci zaliha traje bez novih dolazaka |
 | `Stiže 1/2/3`, `Količina 1/2/3` | pošiljke iz `ROBA_U_DOLASKU` |
@@ -231,6 +238,7 @@ Boje na stupcima `STATUS`, `Zaliha traje (mj.)` i `Izlaz od …` pale se same.
 | `Spremite datoteku (Save) prije osvjezavanja.` | datoteka nije spremljena na disk — `Ctrl+S` |
 | `U mapi nema datoteke 'Stanje skladista...'` | izvoz nije u mapi ili mu je naziv promijenjen |
 | `Izlaz od …` je svugdje 0 | u mapi je samo jedan izvoz stanja, ili je isti izvoz na dva mjesta (točka 4.2) |
+| `Izlaz od …` je prazan, a artikl je u izvozu stanja | zaliha je porasla — između dva izvoza stigla je roba (točka 4.3). Izbrišite tu pošiljku s `ROBA_U_DOLASKU` ako već niste |
 | Prosjek izgleda prenizak | provjerite je li prošlogodišnja `Analiza prodaje` još u mapi |
 | Artikl ima zalihu, a `Naziv artikla` je prazan | artikl je samo u prodaji, nije u izvozu stanja |
 | Osvježavanje traje neuobičajeno dugo | provjerite koliko izvoza je u mapi; svaki se čita pri osvježavanju |
