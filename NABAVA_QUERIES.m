@@ -481,7 +481,11 @@ let
               NazivDob = if s = null then "" else s[NazivDobavljaca],
               ZalihaPrethodno = prethodno,
               Zaliha = zaliha,
-              Izlaz = if prethodno = null then null else prethodno - zaliha,
+              // empty when stock went UP: goods arrived between the two
+              // exports, and the delivered quantity is in neither file, so
+              // the real outflow cannot be told; a minus read as an error
+              Izlaz = if prethodno = null or prethodno < zaliha then null
+                      else prethodno - zaliha,
               Prosjek = prosjek,
               Traje = traje,
               M1 = m1, Q1 = q1, M2 = m2, Q2 = q2, M3 = m3, Q3 = q3,
